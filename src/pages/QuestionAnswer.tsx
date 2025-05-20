@@ -9,6 +9,11 @@ interface Conversation {
 }
 
 export default function QuestionAnswer() {
+
+  useEffect(()=>{
+    window.scrollTo(0, 0);
+  }, []);
+
   const [question, setQuestion] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([
@@ -105,8 +110,8 @@ export default function QuestionAnswer() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-6">
+    <div className="pb-6 sm:pb-8 lg:pb-12 relative overflow-hidden">
+      <div className="mx-auto px-4 md:px-8 text-gray-700 pt-24">
         {/* Left: Q&A Section */}
         <div className="flex-1 flex flex-col min-h-[80vh]">
           <div className="bg-white rounded-t-xl shadow-md p-4 border-b">
@@ -243,7 +248,7 @@ export default function QuestionAnswer() {
         </div>
         
         {/* Right: Health Summary Sidebar */}
-        <aside className="w-full md:w-[350px] bg-white shadow-lg rounded-xl overflow-hidden">
+        <aside className="w-full bg-white shadow-lg rounded-xl overflow-hidden my-8">
           <div className="bg-blue-700 p-6 text-white">
             <h3 className="text-xl font-bold mb-2 flex items-center">
               <span className="material-icons mr-2">person</span>
@@ -253,18 +258,18 @@ export default function QuestionAnswer() {
           </div>
           
           <div className="p-6 space-y-6">
-            <div className="space-y-3">
-              <button className="w-full bg-blue-600 text-white py-2.5 px-4 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors">
+            <div className="flex max-md:flex-col gap-6">
+              <button className="w-full bg-blue-600 text-white py-2.5 px-4 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors cursor-pointer">
                 <span className="material-icons">chat</span>
                 Ask a Medical Question
               </button>
               
-              <button className="w-full bg-blue-600 text-white py-2.5 px-4 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors">
+              <button className="w-full bg-blue-600 text-white py-2.5 px-4 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors cursor-pointer">
                 <span className="material-icons">upload</span>
                 Upload Medical Report
               </button>
               
-              <button className="w-full bg-gray-100 text-gray-800 py-2.5 px-4 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors">
+              <button className="w-full bg-gray-200 text-gray-800 py-2.5 px-4 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-blue-600 hover:text-white cursor-pointer transition-colors">
                 <span className="material-icons">person</span>
                 View Health Summary
               </button>

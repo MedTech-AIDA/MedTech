@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
 
 interface DiagnosisNode {
   id: string;
@@ -20,12 +19,17 @@ interface SymptomMapping {
 }
 
 const ModelReasoning: React.FC = () => {
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const { sessionId } = useParams<{ sessionId: string }>();
   const [diagnosisTree, setDiagnosisTree] = useState<DiagnosisNode | null>(null);
   const [symptomMappings, setSymptomMappings] = useState<SymptomMapping[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Example data - in a real app, fetch this from your API
   useEffect(() => {
     const fetchDiagnosisData = async () => {
@@ -33,7 +37,7 @@ const ModelReasoning: React.FC = () => {
         setLoading(true);
         // In a real implementation, replace with actual API call
         // const response = await axios.get(`http://127.0.0.1:8000/diagnosis-reasoning/${sessionId}`);
-        
+
         // Demo data for visualization
         const mockTree: DiagnosisNode = {
           id: "root",
@@ -64,7 +68,7 @@ const ModelReasoning: React.FC = () => {
             }
           ]
         };
-        
+
         const mockSymptoms: SymptomMapping[] = [
           {
             symptom: "Fatigue",
@@ -90,7 +94,7 @@ const ModelReasoning: React.FC = () => {
             ]
           }
         ];
-        
+
         setDiagnosisTree(mockTree);
         setSymptomMappings(mockSymptoms);
       } catch (err) {
@@ -100,31 +104,29 @@ const ModelReasoning: React.FC = () => {
         setLoading(false);
       }
     };
-    
+
     fetchDiagnosisData();
   }, [sessionId]);
-  
+
   // Render a node in the decision tree
   const renderTreeNode = (node: DiagnosisNode, depth: number = 0) => {
     return (
       <div key={node.id} className="mb-3" style={{ marginLeft: `${depth * 24}px` }}>
-        <div 
-          className={`p-3 rounded-md border-l-4 ${
-            depth === 0 
-              ? 'bg-blue-50 border-blue-500' 
-              : 'bg-white border-gray-300'
-          }`}
+        <div
+          className={`p-3 rounded-md border-l-4 ${depth === 0
+            ? 'bg-blue-50 border-blue-500'
+            : 'bg-white border-gray-300'
+            }`}
         >
           <div className="flex justify-between items-center">
             <p className="font-medium">{node.question}</p>
-            <span 
-              className={`text-sm px-2 py-1 rounded-full ${
-                node.confidence > 0.7 
-                  ? 'bg-green-100 text-green-800' 
-                  : node.confidence > 0.4 
-                    ? 'bg-yellow-100 text-yellow-800' 
-                    : 'bg-red-100 text-red-800'
-              }`}
+            <span
+              className={`text-sm px-2 py-1 rounded-full ${node.confidence > 0.7
+                ? 'bg-green-100 text-green-800'
+                : node.confidence > 0.4
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : 'bg-red-100 text-red-800'
+                }`}
             >
               {Math.round(node.confidence * 100)}% confidence
             </span>
@@ -135,7 +137,7 @@ const ModelReasoning: React.FC = () => {
             </div>
           )}
         </div>
-        
+
         {node.children && node.children.length > 0 && (
           <div className="mt-2 ml-2 pl-4 border-l-2 border-gray-200">
             {node.children.map(child => renderTreeNode(child, depth + 1))}
@@ -144,7 +146,7 @@ const ModelReasoning: React.FC = () => {
       </div>
     );
   };
-  
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[500px]">
@@ -153,7 +155,7 @@ const ModelReasoning: React.FC = () => {
       </div>
     );
   }
-  
+
   if (error) {
     return (
       <div className="bg-red-50 p-4 rounded-md text-red-800 mb-4">
@@ -162,32 +164,31 @@ const ModelReasoning: React.FC = () => {
       </div>
     );
   }
-  
+
   return (
-    <div className="flex min-h-screen bg-[#f7fafc]">
-      {/* Left: Model Reasoning */}
-      <div className="flex-1 p-8">
+    <div className="pb-6 sm:pb-8 lg:pb-12 relative overflow-hidden">
+      <div className="mx-auto px-4 md:px-8 text-gray-700 pt-24">
         <h2 className="text-2xl font-semibold mb-6">Diagnostic Reasoning</h2>
-        
+
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h3 className="text-lg font-medium mb-4">Decision Path</h3>
           <p className="text-gray-600 mb-4">
             The diagnostic model uses a tree-based approach to determine the most likely diagnosis
             based on the patient's symptoms and responses to follow-up questions.
           </p>
-          
+
           <div className="mt-4">
             {diagnosisTree && renderTreeNode(diagnosisTree)}
           </div>
         </div>
-        
+
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-medium mb-4">Symptom Analysis</h3>
           <p className="text-gray-600 mb-4">
             Each symptom contributes to the likelihood of different conditions. Below is the
             breakdown of symptoms and their associated conditions.
           </p>
-          
+
           <div className="space-y-4 mt-6">
             {symptomMappings.map((mapping, index) => (
               <div key={index} className="border rounded-md overflow-hidden">
@@ -204,14 +205,13 @@ const ModelReasoning: React.FC = () => {
                       <div>
                         <div className="flex items-center">
                           <div className="w-32 bg-gray-200 rounded-full h-4 mr-2">
-                            <div 
-                              className={`h-4 rounded-full ${
-                                condition.likelihood > 0.7 
-                                  ? 'bg-green-500' 
-                                  : condition.likelihood > 0.4 
-                                    ? 'bg-yellow-500' 
-                                    : 'bg-red-500'
-                              }`}
+                            <div
+                              className={`h-4 rounded-full ${condition.likelihood > 0.7
+                                ? 'bg-green-500'
+                                : condition.likelihood > 0.4
+                                  ? 'bg-yellow-500'
+                                  : 'bg-red-500'
+                                }`}
                               style={{ width: `${condition.likelihood * 100}%` }}
                             ></div>
                           </div>
@@ -228,9 +228,9 @@ const ModelReasoning: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Right: Upload Report */}
-      <aside className="w-[450px] bg-white shadow-lg p-8 flex flex-col gap-6">
+      <aside className="w-bg-white shadow-lg p-8 flex flex-col gap-6">
         <h3 className="text-2xl font-semibold mb-4 text-black">Upload Report</h3>
         <div className="grid grid-cols-2 gap-4 mb-4">
           <button className="bg-blue-500 text-white rounded-lg p-6 flex flex-col items-center hover:bg-blue-600">
