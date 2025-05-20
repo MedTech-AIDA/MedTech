@@ -6,7 +6,12 @@ const BASE_URL = import.meta.env.VITE_REACT_APP_API_URL || 'http://127.0.0.1:800
 const MAX_RETRIES = 3;
 
 // Log the API endpoint being used
-console.log(`Using API endpoint: ${BASE_URL}`);
+console.log('API Configuration:', {
+  BASE_URL,
+  ENV_URL: import.meta.env.VITE_REACT_APP_API_URL,
+  isDev: import.meta.env.DEV,
+  isProd: import.meta.env.PROD
+});
 
 export interface PatientData {
   name: string;
@@ -88,12 +93,32 @@ const formatError = (error: unknown): ApiError => {
 // Submit initial patient data
 export const submitPatientData = async (patientData: PatientData): Promise<{ session_id: string }> => {
   try {
+    console.log('Submitting patient data:', {
+      url: `${BASE_URL}/symptom`,
+      data: patientData,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
     const response = await retryRequest(() => 
-      axios.post(`${BASE_URL}/symptom`, patientData)
+      axios.post(`${BASE_URL}/symptom`, patientData, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000 // 10 second timeout
+      })
     );
+    
+    console.log('Patient data submission response:', response.data);
     return response.data;
   } catch (error) {
-    console.error('Error submitting patient data:', error);
+    console.error('Error submitting patient data:', {
+      error,
+      isAxiosError: axios.isAxiosError(error),
+      status: axios.isAxiosError(error) ? error.response?.status : null,
+      data: axios.isAxiosError(error) ? error.response?.data : null
+    });
     throw formatError(error);
   }
 };
@@ -108,70 +133,176 @@ export const connectToWebSocket = (
   let socket: WebSocket | null = null;
   let reconnectAttempts = 0;
   let reconnecting = false;
+  let isIntentionalClose = false;
+  let connectionTimeout: ReturnType<typeof setTimeout> | null = null;
+  let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  
   const MAX_RECONNECT_ATTEMPTS = 5;
+  const CONNECTION_TIMEOUT = 10000; // 10 seconds
+  
+  const clearTimeouts = () => {
+    if (connectionTimeout) {
+      clearTimeout(connectionTimeout);
+      connectionTimeout = null;
+    }
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout);
+      reconnectTimeout = null;
+    }
+  };
   
   const connect = () => {
     try {
+      clearTimeouts();
+      
       // Convert http/https to ws/wss for WebSocket connection
-      const protocol = BASE_URL.startsWith('https') ? 'wss' : 'ws';
-      const baseUrl = BASE_URL.replace(/^https?:\/\//, '');
-      const wsUrl = `${protocol}://${baseUrl}/followup/${sessionId}`;
+      const wsUrl = `${BASE_URL.replace('http', 'ws')}/followup/${sessionId}`;
       
-      console.log(`Connecting to WebSocket: ${wsUrl}`);
-      socket = new WebSocket(wsUrl);
+      console.log('WebSocket connection details:', {
+        wsUrl,
+        sessionId,
+        reconnectAttempts,
+        isIntentionalClose,
+        readyState: socket ? socket.readyState : 'N/A'
+      });
       
-      socket.onopen = () => {
-        console.log('WebSocket connected');
-        reconnectAttempts = 0;
-        reconnecting = false;
-      };
-      
-      socket.onmessage = (event) => {
+      // Close existing socket if any
+      if (socket) {
         try {
-          const data = JSON.parse(event.data) as FollowUpQuestion;
-          onMessage(data);
+          socket.close();
         } catch (err) {
-          console.error('Error parsing WebSocket message:', err);
-          onError({ message: 'Invalid data received from server' });
+          console.warn('Error closing existing socket:', err);
         }
-      };
+      }
       
-      socket.onerror = (event) => {
-        console.error('WebSocket error:', event);
-        onError({ 
-          message: 'Connection error. Please check your internet connection.',
-          isNetworkError: true
-        });
-      };
-      
-      socket.onclose = (event) => {
-        console.log('WebSocket closed:', event.code, event.reason);
+      // Create new socket with error handling
+      try {
+        socket = new WebSocket(wsUrl);
         
-        // Attempt to reconnect unless this was an intentional close
-        if (!event.wasClean && !reconnecting && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-          reconnecting = true;
-          reconnectAttempts++;
+        // Set connection timeout
+        connectionTimeout = setTimeout(() => {
+          console.error('WebSocket connection timeout', {
+            wsUrl,
+            readyState: socket?.readyState,
+            reconnectAttempts
+          });
           
-          // Exponential backoff for reconnection
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-          console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts})`);
-          
-          setTimeout(() => {
-            connect();
-          }, delay);
-        } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+          if (socket && socket.readyState !== WebSocket.OPEN) {
+            socket.close();
+            
+            // Attempt reconnection if not intentionally closed
+            if (!isIntentionalClose && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+              reconnecting = true;
+              reconnectAttempts++;
+              
+              const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+              console.log(`Connection timed out. Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
+              
+              reconnectTimeout = setTimeout(connect, delay);
+            } else {
+              onError({ 
+                message: 'Connection timed out. Please check your internet connection.',
+                isNetworkError: true
+              });
+              onClose();
+            }
+          }
+        }, CONNECTION_TIMEOUT);
+        
+        socket.onopen = () => {
+          console.log('WebSocket connected successfully', {
+            wsUrl,
+            readyState: socket?.readyState
+          });
+          clearTimeouts();
+          reconnectAttempts = 0;
+          reconnecting = false;
+        };
+        
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('WebSocket message received:', {
+              data,
+              readyState: socket?.readyState
+            });
+            onMessage(data);
+          } catch (err) {
+            console.error('Error parsing WebSocket message:', {
+              error: err,
+              rawData: event.data,
+              readyState: socket?.readyState
+            });
+            onError({ message: 'Invalid data received from server' });
+          }
+        };
+        
+        socket.onerror = (event) => {
+          console.error('WebSocket error:', {
+            event,
+            readyState: socket?.readyState,
+            wsUrl
+          });
+          clearTimeouts();
           onError({ 
-            message: 'Unable to maintain connection to the server. Please try again later.',
+            message: 'Connection error. Please check your internet connection.',
             isNetworkError: true
           });
-          onClose();
-        } else if (event.wasClean) {
-          onClose();
-        }
-      };
+        };
+        
+        socket.onclose = (event) => {
+          console.log('WebSocket closed:', {
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean,
+            reconnectAttempts,
+            reconnecting,
+            isIntentionalClose,
+            readyState: socket?.readyState,
+            wsUrl
+          });
+          
+          clearTimeouts();
+          
+          // Attempt to reconnect unless this was an intentional close
+          if (!event.wasClean && !isIntentionalClose && !reconnecting && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            reconnecting = true;
+            reconnectAttempts++;
+            
+            // Exponential backoff for reconnection
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+            console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts})`);
+            
+            reconnectTimeout = setTimeout(connect, delay);
+          } else if (!isIntentionalClose && reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            onError({ 
+              message: 'Unable to maintain connection to the server. Please try again later.',
+              isNetworkError: true
+            });
+            onClose();
+          } else if (isIntentionalClose || event.wasClean) {
+            onClose();
+          }
+        };
+      } catch (err) {
+        console.error('Error creating WebSocket:', {
+          error: err,
+          wsUrl,
+          readyState: socket?.readyState
+        });
+        clearTimeouts();
+        onError({ message: 'Failed to establish connection' });
+        onClose();
+      }
     } catch (err) {
-      console.error('Error creating WebSocket:', err);
+      console.error('Error in connect function:', {
+        error: err,
+        wsUrl: `${BASE_URL.replace('http', 'ws')}/followup/${sessionId}`,
+        readyState: socket?.readyState
+      });
+      clearTimeouts();
       onError({ message: 'Failed to establish connection' });
+      onClose();
     }
   };
   
@@ -181,17 +312,39 @@ export const connectToWebSocket = (
   return {
     sendAnswer: (answer: string) => {
       if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ answer }));
+        try {
+          socket.send(JSON.stringify({ answer }));
+        } catch (err) {
+          console.error('Error sending answer:', err);
+          onError({ message: 'Failed to send answer. Please try again.' });
+        }
       } else {
-        console.warn('Cannot send answer: WebSocket not open');
-        onError({ message: 'Connection lost. Trying to reconnect...' });
+        console.warn('Cannot send answer: WebSocket not open', {
+          socketExists: !!socket,
+          readyState: socket ? socket.readyState : 'N/A'
+        });
+        
+        // Try to reconnect if socket is not open
+        if (socket && socket.readyState === WebSocket.CLOSED && !reconnecting && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          console.log('Connection lost. Attempting to reconnect...');
+          onError({ message: 'Connection lost. Trying to reconnect...' });
+          connect();
+        } else {
+          onError({ message: 'Connection lost. Please refresh the page and try again.' });
+        }
       }
     },
     close: () => {
+      isIntentionalClose = true;
+      clearTimeouts();
+      
       if (socket) {
-        // Prevent reconnection attempts when intentionally closing
-        reconnectAttempts = MAX_RECONNECT_ATTEMPTS;
-        socket.close();
+        try {
+          // Use a cleaner close code
+          socket.close(1000, 'User initiated close');
+        } catch (err) {
+          console.warn('Error during intentional WebSocket close:', err);
+        }
         socket = null;
       }
     }
@@ -218,4 +371,4 @@ export const generateReport = async (
     console.error('Error generating report:', error);
     throw formatError(error);
   }
-}; 
+};
