@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PatientForm from '../components/PatientForm';
 import FollowUpQuestions from '../components/FollowUpQuestions';
@@ -11,6 +11,11 @@ enum DiagnosisStep {
 }
 
 const DiagnosisPage: React.FC = () => {
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState<DiagnosisStep>(DiagnosisStep.PATIENT_INFO);
   const [sessionId, setSessionId] = useState<string>('');
@@ -20,7 +25,7 @@ const DiagnosisPage: React.FC = () => {
   const handlePatientSubmit = (newSessionId: string) => {
     setTransition(true);
     setSessionId(newSessionId);
-    
+
     // Add a small delay for the transition effect
     setTimeout(() => {
       setCurrentStep(DiagnosisStep.FOLLOW_UP);
@@ -30,7 +35,7 @@ const DiagnosisPage: React.FC = () => {
 
   const handleFollowUpComplete = () => {
     setTransition(true);
-    
+
     // Add a small delay for the transition effect
     setTimeout(() => {
       setCurrentStep(DiagnosisStep.REPORT);
@@ -40,7 +45,7 @@ const DiagnosisPage: React.FC = () => {
 
   const handleStartNewDiagnosis = () => {
     setTransition(true);
-    
+
     // Add a small delay for the transition effect
     setTimeout(() => {
       setSessionId('');
@@ -49,7 +54,7 @@ const DiagnosisPage: React.FC = () => {
       setTransition(false);
     }, 300);
   };
-  
+
   const handleViewReasoning = () => {
     if (sessionId) {
       navigate(`/reasoning/${sessionId}`);
@@ -62,7 +67,7 @@ const DiagnosisPage: React.FC = () => {
   };
 
   const getStepName = (step: DiagnosisStep): string => {
-    switch(step) {
+    switch (step) {
       case DiagnosisStep.PATIENT_INFO:
         return 'Patient Information';
       case DiagnosisStep.FOLLOW_UP:
@@ -75,8 +80,8 @@ const DiagnosisPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="pb-6 sm:pb-8 lg:pb-12 relative overflow-hidden">
+      <div className="mx-auto px-4 md:px-8 text-gray-700 pt-24">
         <header className="text-center mb-10">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Advanced Diagnosis System</h1>
           <p className="text-gray-600 max-w-2xl mx-auto">
@@ -90,7 +95,7 @@ const DiagnosisPage: React.FC = () => {
             <div>
               <p className="font-medium">Error</p>
               <p>{error}</p>
-              <button 
+              <button
                 className="mt-2 text-red-600 underline"
                 onClick={handleStartNewDiagnosis}
               >
@@ -106,52 +111,47 @@ const DiagnosisPage: React.FC = () => {
             <h2 className="text-xl font-semibold text-gray-800">{getStepName(currentStep)}</h2>
             <div className="text-sm text-gray-500">Step {currentStep + 1} of 3</div>
           </div>
-          
+
           <div className="flex items-center">
-            <div 
-              className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center ${
-                currentStep >= DiagnosisStep.PATIENT_INFO 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-200 text-gray-700'
-              }`}
+            <div
+              className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center ${currentStep >= DiagnosisStep.PATIENT_INFO
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-700'
+                }`}
             >
               <span className="material-icons text-sm">person</span>
               {currentStep === DiagnosisStep.PATIENT_INFO && (
                 <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full animate-pulse"></span>
               )}
             </div>
-            
-            <div 
-              className={`h-1 flex-1 transition-all duration-500 ${
-                currentStep > DiagnosisStep.PATIENT_INFO ? 'bg-blue-600' : 'bg-gray-200'
-              }`}
+
+            <div
+              className={`h-1 flex-1 transition-all duration-500 ${currentStep > DiagnosisStep.PATIENT_INFO ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
             ></div>
-            
-            <div 
-              className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center ${
-                currentStep >= DiagnosisStep.FOLLOW_UP 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-200 text-gray-700'
-              }`}
+
+            <div
+              className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center ${currentStep >= DiagnosisStep.FOLLOW_UP
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-700'
+                }`}
             >
               <span className="material-icons text-sm">question_answer</span>
               {currentStep === DiagnosisStep.FOLLOW_UP && (
                 <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full animate-pulse"></span>
               )}
             </div>
-            
-            <div 
-              className={`h-1 flex-1 transition-all duration-500 ${
-                currentStep > DiagnosisStep.FOLLOW_UP ? 'bg-blue-600' : 'bg-gray-200'
-              }`}
+
+            <div
+              className={`h-1 flex-1 transition-all duration-500 ${currentStep > DiagnosisStep.FOLLOW_UP ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
             ></div>
-            
-            <div 
-              className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center ${
-                currentStep >= DiagnosisStep.REPORT 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-200 text-gray-700'
-              }`}
+
+            <div
+              className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center ${currentStep >= DiagnosisStep.REPORT
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-700'
+                }`}
             >
               <span className="material-icons text-sm">summarize</span>
               {currentStep === DiagnosisStep.REPORT && (
@@ -159,7 +159,7 @@ const DiagnosisPage: React.FC = () => {
               )}
             </div>
           </div>
-          
+
           <div className="flex justify-between text-xs text-gray-600 mt-2">
             <div className={currentStep === DiagnosisStep.PATIENT_INFO ? 'text-blue-600 font-medium' : ''}>
               Patient Info
@@ -174,31 +174,30 @@ const DiagnosisPage: React.FC = () => {
         </div>
 
         {/* Current step content with transitions */}
-        <div 
-          className={`transition-opacity duration-300 ${
-            transition ? 'opacity-0 transform -translate-y-4' : 'opacity-100'
-          }`}
+        <div
+          className={`transition-opacity duration-300 ${transition ? 'opacity-0 transform -translate-y-4' : 'opacity-100'
+            }`}
         >
           {currentStep === DiagnosisStep.PATIENT_INFO && (
-            <PatientForm 
-              onSubmitSuccess={handlePatientSubmit} 
-              onError={handleError} 
+            <PatientForm
+              onSubmitSuccess={handlePatientSubmit}
+              onError={handleError}
             />
           )}
-          
+
           {currentStep === DiagnosisStep.FOLLOW_UP && sessionId && (
-            <FollowUpQuestions 
-              sessionId={sessionId} 
-              onComplete={handleFollowUpComplete} 
-              onError={handleError} 
+            <FollowUpQuestions
+              sessionId={sessionId}
+              onComplete={handleFollowUpComplete}
+              onError={handleError}
             />
           )}
-          
+
           {currentStep === DiagnosisStep.REPORT && sessionId && (
             <div>
-              <DiagnosisReport 
-                sessionId={sessionId} 
-                onNewDiagnosis={handleStartNewDiagnosis} 
+              <DiagnosisReport
+                sessionId={sessionId}
+                onNewDiagnosis={handleStartNewDiagnosis}
               />
               <div className="mt-8 text-center">
                 <button
