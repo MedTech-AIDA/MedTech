@@ -1,287 +1,336 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { connectToWebSocket } from '../services/api';
-import type { FollowUpQuestion, FollowUpOption } from '../services/api';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 interface FollowUpQuestionsProps {
   sessionId: string;
   onComplete: () => void;
   onError: (error: any) => void;
+  onConnectionStatus: (status: boolean) => void;
 }
 
-const FollowUpQuestions: React.FC<FollowUpQuestionsProps> = ({ 
-  sessionId, 
-  onComplete, 
-  onError 
+interface Message {
+  type: 'bot' | 'user';
+  content: string;
+  options?: Array<{ key: string; value: string }>;
+}
+
+const FollowUpQuestions: React.FC<FollowUpQuestionsProps> = ({
+  sessionId,
+  onComplete,
+  onError,
+  onConnectionStatus
 }) => {
-  const [currentQuestion, setCurrentQuestion] = useState<FollowUpQuestion | null>(null);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [answer, setAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(true);
-  const [questionHistory, setQuestionHistory] = useState<Array<{
-    question: string;
-    selectedAnswer?: string;
-    timestamp: Date;
-  }>>([]);
-  
-  const webSocketRef = useRef<ReturnType<typeof connectToWebSocket> | null>(null);
-  const mountedRef = useRef(false);
-  const questionsContainerRef = useRef<HTMLDivElement>(null);
+  const [isComplete, setIsComplete] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [lastMessageTime, setLastMessageTime] = useState<number>(Date.now());
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+  const [loadingMessage, setLoadingMessage] = useState('Connecting to server...');
+
+  const wsRef = useRef<WebSocket | null>(null);
+  const mountedRef = useRef(true);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout>();
+  const messageTimeoutRef = useRef<NodeJS.Timeout>();
+  const loadingTimeoutRef = useRef<NodeJS.Timeout>();
+  const chatBoxRef = useRef<HTMLDivElement>(null);
+
+  const MAX_RECONNECT_ATTEMPTS = 5;
+  const RECONNECT_DELAY = 3000;
+  const MESSAGE_TIMEOUT = 30000;
+  const HEARTBEAT_INTERVAL = 15000;
+  const LOADING_MESSAGES = [
+    'Analyzing your symptoms...',
+    'Processing medical data...',
+    'Consulting medical knowledge base...',
+    'Preparing follow-up questions...'
+  ];
+
+  const scrollToBottom = useCallback(() => {
+    if (chatBoxRef.current) {
+      chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+    }
+  }, []);
+
+  const updateLoadingMessage = useCallback(() => {
+    if (!mountedRef.current) return;
+    const randomIndex = Math.floor(Math.random() * LOADING_MESSAGES.length);
+    setLoadingMessage(LOADING_MESSAGES[randomIndex]);
+  }, []);
+
+  const addMessage = useCallback((message: Message) => {
+    setMessages(prev => [...prev, message]);
+    setTimeout(scrollToBottom, 100);
+  }, [scrollToBottom]);
+
+  const handleQuestion = useCallback((data: any) => {
+    if (!mountedRef.current) return;
+    
+    setLastMessageTime(Date.now());
+    if (data.question) {
+      addMessage({ 
+        type: 'bot', 
+        content: data.question,
+        options: data.options 
+      });
+      setIsLoading(false);
+      setError(null);
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+    } else if (data.message) {
+      addMessage({ type: 'bot', content: data.message });
+      if (data.status === 'ready_for_diagnosis') {
+        setIsComplete(true);
+        setIsLoading(false);
+        onComplete();
+      }
+    } else if (data.error) {
+      addMessage({ type: 'bot', content: `Error: ${data.error}` });
+      handleError(new Error(data.error));
+    }
+  }, [onComplete, addMessage]);
+
+  const handleError = useCallback((error: any) => {
+    if (!mountedRef.current) return;
+    
+    console.error('WebSocket error:', error);
+    setError(error.message || 'An error occurred while processing your answer');
+    setIsLoading(false);
+    onError(error);
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+    }
+  }, [onError]);
+
+  const connectWebSocket = useCallback(() => {
+    if (!mountedRef.current) return;
+
+    try {
+      setConnectionStatus('connecting');
+      // Convert http/https to ws/wss for WebSocket connection
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${wsProtocol}//${window.location.host}/ws/diagnosis/${sessionId}`;
+      
+      console.log('Connecting to WebSocket:', wsUrl);
+      
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        if (!mountedRef.current) return;
+        console.log('WebSocket connected');
+        setIsConnected(true);
+        onConnectionStatus(true);
+        setConnectionStatus('connected');
+        setReconnectAttempts(0);
+        setError(null);
+        
+        // Start rotating loading messages
+        loadingTimeoutRef.current = setInterval(updateLoadingMessage, 3000);
+      };
+
+      ws.onmessage = (event: MessageEvent) => {
+        if (!mountedRef.current) return;
+        try {
+          const data = JSON.parse(event.data);
+          console.log('Received message:', data);
+          handleQuestion(data);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+          handleError(error);
+        }
+      };
+
+      ws.onclose = (event) => {
+        if (!mountedRef.current) return;
+        console.log('WebSocket closed:', event.code, event.reason);
+        setIsConnected(false);
+        onConnectionStatus(false);
+        setConnectionStatus('disconnected');
+        
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current);
+        }
+        
+        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          setReconnectAttempts(prev => prev + 1);
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+          console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts + 1})`);
+          
+          reconnectTimeoutRef.current = setTimeout(() => {
+            if (mountedRef.current) {
+              connectWebSocket();
+            }
+          }, delay);
+        } else {
+          handleError(new Error('Connection lost. Please try again.'));
+        }
+      };
+
+      ws.onerror = (event: Event) => {
+        if (!mountedRef.current) return;
+        console.error('WebSocket error:', event);
+        handleError(new Error('WebSocket connection error'));
+      };
+
+      // Set up heartbeat
+      heartbeatIntervalRef.current = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, HEARTBEAT_INTERVAL);
+
+      // Set up message timeout
+      messageTimeoutRef.current = setTimeout(() => {
+        if (Date.now() - lastMessageTime > MESSAGE_TIMEOUT) {
+          ws.close();
+        }
+      }, MESSAGE_TIMEOUT);
+
+    } catch (error) {
+      console.error('Error creating WebSocket:', error);
+      handleError(error);
+    }
+  }, [sessionId, handleQuestion, handleError, reconnectAttempts, lastMessageTime, updateLoadingMessage, onConnectionStatus]);
 
   useEffect(() => {
-    console.log(`Initializing WebSocket connection for session: ${sessionId}`);
     mountedRef.current = true;
-    
-    // Establish WebSocket connection
-    const webSocketConnection = connectToWebSocket(
-      sessionId,
-      // onMessage handler
-      (data) => {
-        if (!mountedRef.current) return;
-        
-        console.log('Received question data:', data);
-        if (data.status === 'completed') {
-          onComplete();
-        } else {
-          setCurrentQuestion(data);
-          setIsConnecting(false);
-          setLoading(false);
-        }
-      },
-      // onError handler
-      (err) => {
-        if (!mountedRef.current) return;
-        
-        console.log('WebSocket error in component:', err);
-        setError(err.message || 'Connection error');
-        onError(err);
-      },
-      // onClose handler
-      () => {
-        if (!mountedRef.current) return;
-        
-        console.log('WebSocket connection closed in component');
-        // Only show the error if we're still loading (connection never established)
-        if (loading) {
-          setError('Connection to server lost. Please try again.');
-          onError(new Error('WebSocket connection closed'));
-        }
-      }
-    );
-    
-    // Store the connection
-    webSocketRef.current = webSocketConnection;
-    
-    // Cleanup function
+    connectWebSocket();
+
     return () => {
-      console.log('Cleaning up WebSocket connection');
       mountedRef.current = false;
-      if (webSocketRef.current) {
-        webSocketRef.current.close();
-        webSocketRef.current = null;
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+      }
+      if (messageTimeoutRef.current) {
+        clearTimeout(messageTimeoutRef.current);
+      }
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
       }
     };
-  }, [sessionId, onComplete, onError]);
+  }, [connectWebSocket]);
 
-  // Scroll to the bottom when a new question is added or answered
-  useEffect(() => {
-    if (questionsContainerRef.current) {
-      questionsContainerRef.current.scrollTop = questionsContainerRef.current.scrollHeight;
-    }
-  }, [questionHistory, currentQuestion]);
-
-  const handleSelectOption = (key: string) => {
-    setSelectedOption(key);
-  };
-
-  const handleSubmitAnswer = () => {
-    if (!selectedOption || !currentQuestion || !webSocketRef.current) {
-      return;
-    }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!answer.trim() || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
     setIsSubmitting(true);
     try {
-      // Find the selected option text to display in history
-      const selectedText = currentQuestion.options.find(
-        (opt) => opt.key === selectedOption
-      )?.value || '';
-
-      // Add to question history
-      setQuestionHistory((prev) => [
-        ...prev,
-        {
-          question: currentQuestion.question,
-          selectedAnswer: `${selectedText}`,
-          timestamp: new Date()
-        }
-      ]);
-
-      // Send answer via WebSocket
-      console.log('Sending answer:', selectedOption);
-      webSocketRef.current.sendAnswer(selectedOption);
-      
-      // Reset selection for next question
-      setSelectedOption(null);
-      setCurrentQuestion(null); // Clear current question while waiting for next one
-      setIsConnecting(true); // Show loading state while waiting for next question
-    } catch (err) {
-      console.error('Error submitting answer:', err);
-      setError('Failed to submit answer. Please try again.');
-      onError(err);
+      wsRef.current.send(JSON.stringify({
+        type: 'answer',
+        answer: answer.trim()
+      }));
+      addMessage({ type: 'user', content: answer.trim() });
+      setAnswer('');
+      setIsLoading(true);
+      setLoadingMessage('Processing your answer...');
+    } catch (error) {
+      console.error('Error sending answer:', error);
+      handleError(error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Format time for display
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  if (error) {
-    return (
-      <div className="bg-white p-8 rounded-xl shadow-lg">
-        <div className="flex flex-col items-center justify-center text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-            <span className="material-icons text-red-600 text-2xl">error_outline</span>
-          </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Connection Error</h3>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <button 
-            className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all flex items-center"
-            onClick={() => window.location.reload()}
-          >
-            <span className="material-icons mr-2">refresh</span>
-            Retry Connection
-          </button>
-        </div>
-      </div>
-    );
+  if (isComplete) {
+    return null;
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col">
-      {/* Header */}
-      <div className="bg-blue-600 p-6">
-        <h2 className="text-2xl font-bold text-white">Follow-up Questions</h2>
-        <p className="text-blue-100 mt-1">Please answer these questions to help us provide a more accurate diagnosis</p>
-      </div>
-      
-      {/* Conversation history */}
+    <div className="max-w-2xl mx-auto">
+      {error && (
+        <div className="bg-red-50 p-4 rounded-md text-red-800 mb-6">
+          <p className="font-medium">Error</p>
+          <p>{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-2 text-red-600 hover:text-red-800 underline"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
+
+      {connectionStatus === 'connecting' && (
+        <div className="text-center py-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">{loadingMessage}</p>
+        </div>
+      )}
+
+      {connectionStatus === 'disconnected' && (
+        <div className="text-center py-4">
+          <p className="text-red-600">Connection lost. Attempting to reconnect...</p>
+          <p className="text-sm text-gray-600">Attempt {reconnectAttempts + 1} of {MAX_RECONNECT_ATTEMPTS}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Retry Now
+          </button>
+        </div>
+      )}
+
       <div 
-        ref={questionsContainerRef} 
-        className="flex-1 p-6 overflow-y-auto max-h-[400px] space-y-4"
+        ref={chatBoxRef}
+        className="border border-gray-300 rounded-md p-4 mb-4 h-[400px] overflow-y-auto bg-white"
       >
-        {questionHistory.map((item, index) => (
-          <div key={index} className="mb-6">
-            <div className="flex items-start mb-4">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <span className="material-icons text-blue-600">medical_services</span>
-              </div>
-              <div className="ml-3 bg-blue-50 py-3 px-4 rounded-lg rounded-tl-none max-w-[80%]">
-                <p className="text-gray-900">{item.question}</p>
-                <span className="text-xs text-gray-500 block mt-1">{formatTime(item.timestamp)}</span>
-              </div>
-            </div>
-            
-            {item.selectedAnswer && (
-              <div className="flex items-start justify-end">
-                <div className="mr-3 bg-gray-100 py-3 px-4 rounded-lg rounded-tr-none max-w-[80%]">
-                  <p className="text-gray-900">{item.selectedAnswer}</p>
-                  <span className="text-xs text-gray-500 block mt-1">{formatTime(item.timestamp)}</span>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
-                  <span className="material-icons text-gray-600">person</span>
-                </div>
+        {messages.map((message, index) => (
+          <div 
+            key={index} 
+            className={`mb-2 ${
+              message.type === 'bot' ? 'text-green-600' : 'text-blue-600'
+            }`}
+          >
+            <strong>{message.type === 'bot' ? 'Bot:' : 'You:'}</strong>{' '}
+            {message.content}
+            {message.options && (
+              <div className="ml-4 mt-1">
+                {message.options.map((option, optIndex) => (
+                  <div key={optIndex} className="text-gray-600">
+                    {option.key}: {option.value}
+                  </div>
+                ))}
               </div>
             )}
           </div>
         ))}
-        
-        {/* Current question or loading state */}
-        {isConnecting ? (
-          <div className="flex items-center justify-center py-10">
-            <div className="flex flex-col items-center">
-              <div className="relative">
-                <div className="h-12 w-12 rounded-full border-t-2 border-b-2 border-blue-500 animate-spin"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="material-icons text-blue-500 text-sm">medical_services</span>
-                </div>
-              </div>
-              <p className="mt-4 text-gray-700">
-                {currentQuestion ? 'Processing your answer...' : 'Analyzing your information...'}
-              </p>
-            </div>
-          </div>
-        ) : currentQuestion ? (
-          <div className="animate-fadeIn">
-            <div className="flex items-start mb-4">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <span className="material-icons text-blue-600">medical_services</span>
-              </div>
-              <div className="ml-3 bg-blue-50 py-3 px-4 rounded-lg rounded-tl-none max-w-[80%]">
-                <p className="text-gray-900">{currentQuestion.question}</p>
-                <span className="text-xs text-gray-500 block mt-1">{formatTime(new Date())}</span>
-              </div>
-            </div>
-          </div>
-        ) : null}
       </div>
-      
-      {/* Answer options */}
-      {currentQuestion && !isConnecting && (
-        <div className="border-t border-gray-200 p-6 bg-gray-50">
-          <div className="mb-4">
-            <p className="text-sm font-medium text-gray-700 mb-2">Select an answer:</p>
-            <div className="grid grid-cols-1 gap-3">
-              {currentQuestion.options.map((option) => (
-                <button
-                  key={option.key}
-                  onClick={() => handleSelectOption(option.key)}
-                  className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                    selectedOption === option.key
-                      ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
-                      : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center">
-                    <div className={`w-6 h-6 flex-shrink-0 rounded-full mr-3 border-2 flex items-center justify-center ${
-                      selectedOption === option.key ? 'border-blue-500 bg-blue-500' : 'border-gray-400'
-                    }`}>
-                      {selectedOption === option.key && (
-                        <span className="material-icons text-white text-sm">check</span>
-                      )}
-                    </div>
-                    <span>{option.value}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-          
+
+      {isConnected && (
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          <input
+            type="text"
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            placeholder="Type your answer..."
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            disabled={isSubmitting}
+          />
           <button
-            onClick={handleSubmitAnswer}
-            disabled={!selectedOption || isSubmitting}
-            className={`w-full py-3 px-4 rounded-lg font-semibold text-white shadow transition-all ${
-              !selectedOption || isSubmitting
-                ? 'bg-blue-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700 transform hover:-translate-y-0.5'
+            type="submit"
+            disabled={!answer.trim() || isSubmitting}
+            className={`px-4 py-2 rounded-md text-white font-medium ${
+              !answer.trim() || isSubmitting
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
-            {isSubmitting ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mr-2"></div>
-                Submitting...
-              </div>
-            ) : (
-              <div className="flex items-center justify-center">
-                <span className="material-icons mr-2">send</span>
-                Submit Answer
-              </div>
-            )}
+            {isSubmitting ? 'Submitting...' : 'Send'}
           </button>
-        </div>
+        </form>
       )}
     </div>
   );

@@ -1,23 +1,28 @@
 import axios, { AxiosError } from 'axios';
 
 // Configure the backend URL
-// This allows easy switching between environments
-const BASE_URL = import.meta.env.VITE_REACT_APP_API_URL || 'http://127.0.0.1:8000';
+const API_BASE_URL = import.meta.env.VITE_REACT_APP_API_URL || 'http://127.0.0.1:8000';
 const MAX_RETRIES = 3;
 
 // Log the API endpoint being used
-console.log('API Configuration:', {
-  BASE_URL,
-  ENV_URL: import.meta.env.VITE_REACT_APP_API_URL,
-  isDev: import.meta.env.DEV,
-  isProd: import.meta.env.PROD
-});
+console.log(`Using API endpoint: ${API_BASE_URL}`);
+
+const API_TIMEOUT = 30000; // 30 seconds timeout for API requests
+const WS_TIMEOUT = 30000; // 30 seconds timeout for WebSocket operations
 
 export interface PatientData {
   name: string;
   age: number;
   gender: string;
   symptoms: string;
+}
+
+export interface SessionData {
+  name: string;
+  age: number;
+  gender: string;
+  symptoms: string[];
+  chat_history: any[];
 }
 
 export interface FollowUpOption {
@@ -28,13 +33,19 @@ export interface FollowUpOption {
 export interface FollowUpQuestion {
   question: string;
   options: FollowUpOption[];
-  status: 'waiting_for_answer' | 'processing' | 'completed';
+  status: 'waiting_for_answer' | 'ready_for_diagnosis';
 }
 
 export interface ApiError {
   message: string;
   status?: number;
   isNetworkError?: boolean;
+}
+
+export interface SymptomResponse {
+  message: string;
+  status: 'symptom_submitted';
+  session_id: string;
 }
 
 /**
@@ -90,45 +101,99 @@ const formatError = (error: unknown): ApiError => {
   };
 };
 
-// Submit initial patient data
-export const submitPatientData = async (patientData: PatientData): Promise<{ session_id: string }> => {
+// Helper function to get the API base URL
+const getBaseUrl = (isHtmlEndpoint: boolean = false) => {
+  return isHtmlEndpoint ? API_BASE_URL : API_BASE_URL;
+};
+
+// Generic API request function with error handling
+const apiRequest = async <T>(
+  url: string, 
+  method: string = 'GET', 
+  data?: any,
+  onProgress?: (progress: number) => void,
+  isHtmlEndpoint: boolean = false
+): Promise<T> => {
   try {
-    console.log('Submitting patient data:', {
-      url: `${BASE_URL}/symptom`,
-      data: patientData,
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+
+    const response = await fetch(`${getBaseUrl(isHtmlEndpoint)}${url}`, {
+      method,
       headers: {
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+      },
+      body: data ? JSON.stringify(data) : undefined,
+      signal: controller.signal,
     });
 
-    const response = await retryRequest(() => 
-      axios.post(`${BASE_URL}/symptom`, patientData, {
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        timeout: 10000 // 10 second timeout
-      })
-    );
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(errorData.message || `Server responded with status: ${response.status}`);
+    }
     
-    console.log('Patient data submission response:', response.data);
-    return response.data;
+    // Handle progress for blob responses if needed
+    if (onProgress && response.body) {
+      const contentLength = Number(response.headers.get('Content-Length')) || 0;
+      let loaded = 0;
+      const reader = response.body.getReader();
+      const chunks: Uint8Array[] = [];
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        chunks.push(value);
+        loaded += value.length;
+        
+        if (contentLength > 0) {
+          onProgress(Math.min(Math.round((loaded / contentLength) * 100), 100));
+        }
+      }
+      
+      // Reconstruct the response from chunks
+      const blob = new Blob(chunks);
+      return blob as unknown as T;
+    }
+    
+    // Regular JSON response
+    const contentType = response.headers.get('Content-Type') || '';
+    if (contentType.includes('application/json')) {
+      return await response.json();
+    } else if (contentType.includes('application/pdf')) {
+      return await response.blob() as unknown as T;
+    } else {
+      return await response.text() as unknown as T;
+    }
   } catch (error) {
-    console.error('Error submitting patient data:', {
-      error,
-      isAxiosError: axios.isAxiosError(error),
-      status: axios.isAxiosError(error) ? error.response?.status : null,
-      data: axios.isAxiosError(error) ? error.response?.data : null
-    });
-    throw formatError(error);
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out. Please try again.');
+      }
+      throw error;
+    }
+    throw new Error('An unexpected error occurred');
   }
 };
 
-// Connect to WebSocket for follow-up questions with reconnection logic
+// Submit patient data to start diagnosis
+export const submitPatientData = async (data: PatientData): Promise<SymptomResponse> => {
+  return apiRequest('/symptom', 'POST', data);
+};
+
+// Get session data
+export const getSessionData = async (sessionId: string): Promise<SessionData> => {
+  return apiRequest(`/session/${sessionId}`, 'GET');
+};
+
+// Connect to WebSocket for follow-up questions
 export const connectToWebSocket = (
   sessionId: string, 
-  onMessage: (data: FollowUpQuestion) => void, 
-  onError: (error: ApiError) => void,
-  onClose: () => void
+  onQuestion: (question: string, options: FollowUpOption[], sendAnswer: (answer: string) => void) => void,
+  onComplete: (message: string) => void,
+  onError: (error: ApiError) => void
 ) => {
   let socket: WebSocket | null = null;
   let reconnectAttempts = 0;
@@ -156,14 +221,15 @@ export const connectToWebSocket = (
       clearTimeouts();
       
       // Convert http/https to ws/wss for WebSocket connection
-      const wsUrl = `${BASE_URL.replace('http', 'ws')}/followup/${sessionId}`;
+      const wsProtocol = API_BASE_URL.startsWith('https') ? 'wss' : 'ws';
+      const wsBaseUrl = API_BASE_URL.replace(/^https?:\/\//, `${wsProtocol}://`);
+      const wsUrl = `${wsBaseUrl}/followup/${sessionId}`;
       
       console.log('WebSocket connection details:', {
         wsUrl,
         sessionId,
         reconnectAttempts,
-        isIntentionalClose,
-        readyState: socket ? socket.readyState : 'N/A'
+        isIntentionalClose
       });
       
       // Close existing socket if any
@@ -173,136 +239,115 @@ export const connectToWebSocket = (
         } catch (err) {
           console.warn('Error closing existing socket:', err);
         }
+        socket = null;
       }
       
-      // Create new socket with error handling
-      try {
-        socket = new WebSocket(wsUrl);
-        
-        // Set connection timeout
-        connectionTimeout = setTimeout(() => {
-          console.error('WebSocket connection timeout', {
-            wsUrl,
-            readyState: socket?.readyState,
-            reconnectAttempts
-          });
-          
-          if (socket && socket.readyState !== WebSocket.OPEN) {
-            socket.close();
-            
-            // Attempt reconnection if not intentionally closed
-            if (!isIntentionalClose && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-              reconnecting = true;
-              reconnectAttempts++;
-              
-              const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-              console.log(`Connection timed out. Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
-              
-              reconnectTimeout = setTimeout(connect, delay);
-            } else {
-              onError({ 
-                message: 'Connection timed out. Please check your internet connection.',
-                isNetworkError: true
-              });
-              onClose();
-            }
-          }
-        }, CONNECTION_TIMEOUT);
-        
-        socket.onopen = () => {
-          console.log('WebSocket connected successfully', {
-            wsUrl,
-            readyState: socket?.readyState
-          });
-          clearTimeouts();
-          reconnectAttempts = 0;
-          reconnecting = false;
-        };
-        
-        socket.onmessage = (event) => {
+      // Create new socket
+      socket = new WebSocket(wsUrl);
+      
+      // Set connection timeout
+      connectionTimeout = setTimeout(() => {
+        console.error('WebSocket connection timeout');
+        if (socket && socket.readyState !== WebSocket.OPEN) {
           try {
-            const data = JSON.parse(event.data);
-            console.log('WebSocket message received:', {
-              data,
-              readyState: socket?.readyState
-            });
-            onMessage(data);
+            socket.close();
           } catch (err) {
-            console.error('Error parsing WebSocket message:', {
-              error: err,
-              rawData: event.data,
-              readyState: socket?.readyState
-            });
-            onError({ message: 'Invalid data received from server' });
+            console.warn('Error closing socket after timeout:', err);
           }
-        };
-        
-        socket.onerror = (event) => {
-          console.error('WebSocket error:', {
-            event,
-            readyState: socket?.readyState,
-            wsUrl
-          });
-          clearTimeouts();
-          onError({ 
-            message: 'Connection error. Please check your internet connection.',
-            isNetworkError: true
-          });
-        };
-        
-        socket.onclose = (event) => {
-          console.log('WebSocket closed:', {
-            code: event.code,
-            reason: event.reason,
-            wasClean: event.wasClean,
-            reconnectAttempts,
-            reconnecting,
-            isIntentionalClose,
-            readyState: socket?.readyState,
-            wsUrl
-          });
           
-          clearTimeouts();
-          
-          // Attempt to reconnect unless this was an intentional close
-          if (!event.wasClean && !isIntentionalClose && !reconnecting && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          if (!isIntentionalClose && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
             reconnecting = true;
             reconnectAttempts++;
             
-            // Exponential backoff for reconnection
             const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-            console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts})`);
+            console.log(`Connection timed out. Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
             
             reconnectTimeout = setTimeout(connect, delay);
-          } else if (!isIntentionalClose && reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+          } else {
             onError({ 
-              message: 'Unable to maintain connection to the server. Please try again later.',
+              message: 'Connection timed out. Please check your internet connection.',
               isNetworkError: true
             });
-            onClose();
-          } else if (isIntentionalClose || event.wasClean) {
-            onClose();
           }
-        };
-      } catch (err) {
-        console.error('Error creating WebSocket:', {
-          error: err,
-          wsUrl,
-          readyState: socket?.readyState
-        });
+        }
+      }, CONNECTION_TIMEOUT);
+      
+      socket.onopen = () => {
+        console.log('WebSocket connected successfully');
         clearTimeouts();
-        onError({ message: 'Failed to establish connection' });
-        onClose();
-      }
+        reconnectAttempts = 0;
+        reconnecting = false;
+      };
+      
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('WebSocket message received:', data);
+          
+          if (data.status === 'waiting_for_answer') {
+            onQuestion(data.question, data.options, (answer) => {
+              if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(answer);
+              }
+            });
+          } else if (data.status === 'ready_for_diagnosis') {
+            onComplete(data.message);
+            if (socket) {
+              try {
+                socket.close();
+              } catch (err) {
+                console.warn('Error closing socket after diagnosis ready:', err);
+              }
+            }
+          } else if (data.error) {
+            onError({ message: data.error });
+          }
+        } catch (err) {
+          console.error('Error parsing WebSocket message:', err, 'Raw data:', event.data);
+          onError({ message: 'Invalid data received from server' });
+        }
+      };
+      
+      socket.onerror = (event) => {
+        console.error('WebSocket error:', event);
+        clearTimeouts();
+        onError({ 
+          message: 'Connection error. Please check your internet connection.',
+          isNetworkError: true
+        });
+      };
+      
+      socket.onclose = (event) => {
+        console.log('WebSocket closed:', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+          reconnectAttempts,
+          reconnecting,
+          isIntentionalClose
+        });
+        
+        clearTimeouts();
+        
+        if (!event.wasClean && !isIntentionalClose && !reconnecting && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          reconnecting = true;
+          reconnectAttempts++;
+          
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+          console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts})`);
+          
+          reconnectTimeout = setTimeout(connect, delay);
+        } else if (!isIntentionalClose && reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+          onError({ 
+            message: 'Unable to maintain connection to the server. Please try again later.',
+            isNetworkError: true
+          });
+        }
+      };
     } catch (err) {
-      console.error('Error in connect function:', {
-        error: err,
-        wsUrl: `${BASE_URL.replace('http', 'ws')}/followup/${sessionId}`,
-        readyState: socket?.readyState
-      });
+      console.error('Error creating WebSocket:', err);
       clearTimeouts();
       onError({ message: 'Failed to establish connection' });
-      onClose();
     }
   };
   
@@ -310,37 +355,12 @@ export const connectToWebSocket = (
   connect();
   
   return {
-    sendAnswer: (answer: string) => {
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        try {
-          socket.send(JSON.stringify({ answer }));
-        } catch (err) {
-          console.error('Error sending answer:', err);
-          onError({ message: 'Failed to send answer. Please try again.' });
-        }
-      } else {
-        console.warn('Cannot send answer: WebSocket not open', {
-          socketExists: !!socket,
-          readyState: socket ? socket.readyState : 'N/A'
-        });
-        
-        // Try to reconnect if socket is not open
-        if (socket && socket.readyState === WebSocket.CLOSED && !reconnecting && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-          console.log('Connection lost. Attempting to reconnect...');
-          onError({ message: 'Connection lost. Trying to reconnect...' });
-          connect();
-        } else {
-          onError({ message: 'Connection lost. Please refresh the page and try again.' });
-        }
-      }
-    },
     close: () => {
       isIntentionalClose = true;
       clearTimeouts();
       
       if (socket) {
         try {
-          // Use a cleaner close code
           socket.close(1000, 'User initiated close');
         } catch (err) {
           console.warn('Error during intentional WebSocket close:', err);
@@ -351,24 +371,12 @@ export const connectToWebSocket = (
   };
 };
 
-// Get diagnosis report with download progress
-export const generateReport = async (
-  sessionId: string, 
-  onProgress?: (progress: number) => void
-): Promise<Blob> => {
-  try {
-    const response = await axios.get(`${BASE_URL}/generate_report/${sessionId}`, {
-      responseType: 'blob',
-      onDownloadProgress: (progressEvent) => {
-        if (onProgress && progressEvent.total) {
-          const percentComplete = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          onProgress(percentComplete);
-        }
-      }
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error generating report:', error);
-    throw formatError(error);
-  }
+// Generate diagnosis report
+export const generateReport = async (sessionId: string): Promise<Blob> => {
+  return apiRequest(`/generate_report/${sessionId}`, 'GET');
 };
+
+// Ask a medical question
+export const askMedicalQuestion = async (question: string): Promise<{ answer: string; explanation?: string }> => {
+  return apiRequest('/ask', 'POST', { question });
+}; 

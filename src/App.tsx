@@ -1,31 +1,20 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import QuestionAnswer from './pages/QuestionAnswer.tsx';
-import ModelReasoning from './pages/ModelReasoning.tsx';
+import QuestionAnswer from './pages/QuestionAnswer';
+import ModelReasoning from './pages/ModelReasoning';
 import DiagnosisPage from './pages/DiagnosisPage';
 import './App.css';
-import Navbar from './pages/Navbar.tsx';
-import Footer from './pages/Footer.tsx';
-
-// function Navigation() {
-//   return (
-    
-//   );
-// }
+import Navbar from './pages/Navbar';
 
 function App() {
   return (
     <Router>
-      {/* <Navigation /> */}
-      <Navbar/>
-
+      <Navbar />
       <Routes>
         <Route path="/" element={<QuestionAnswer />} />
         <Route path="/reasoning/:sessionId?" element={<ModelReasoning />} />
         <Route path="/diagnosis" element={<DiagnosisPage />} />
       </Routes>
-
-      <Footer/>
-
     </Router>
   );
 }

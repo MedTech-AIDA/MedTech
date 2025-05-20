@@ -1,41 +1,42 @@
-import { Link, useLocation } from "react-router-dom";
+import React from 'react';
+import { Link } from 'react-router-dom';
 
-function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
-    const location = useLocation();
-    const isActive = location.pathname === to ||
-        (to !== '/' && location.pathname.startsWith(to));
-
+const Navbar: React.FC = () => {
     return (
-        <Link
-            to={to}
-            className={`transition-colors ${isActive
-                ? 'text-blue-500'
-                : 'text-white hover:text-blue-600'
-                }`}
-        >
-            {children}
-        </Link>
-    );
-}
-
-const Navbar = () => {
-    return (
-        <nav className="fixed top-0 left-0 bg-gray-800 w-full p-1 z-50">
-            <div className="flex items-center justify-center flex-col space-y-1">
-                <div className="">
-                    <Link to="/" className="text-2xl font-bold text-blue-500 flex items-center">
-                        <span className="material-icons mr-2">medical_services</span>
-                        Sehat
-                    </Link>
-                </div>
-                <div className="flex items-center justify-center space-x-8">
-                    <NavLink to="/">Q&amp;A</NavLink>
-                    <NavLink to="/diagnosis">Diagnosis</NavLink>
-                    <NavLink to="/reasoning">Insights</NavLink>
+        <nav className="bg-white shadow-sm">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex justify-between h-16">
+                    <div className="flex">
+                        <div className="flex-shrink-0 flex items-center">
+                            <Link to="/" className="text-xl font-bold text-blue-600">
+                                Sehat
+                            </Link>
+                        </div>
+                        <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+                            <Link
+                                to="/"
+                                className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                            >
+                                Home
+                            </Link>
+                            <Link
+                                to="/diagnosis"
+                                className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                            >
+                                Diagnosis
+                            </Link>
+                            {/* <Link
+                                to="/test"
+                                className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                            >
+                                Test
+                            </Link> */}
+                        </div>
+                    </div>
                 </div>
             </div>
         </nav>
-    )
-}
+    );
+};
 
 export default Navbar;

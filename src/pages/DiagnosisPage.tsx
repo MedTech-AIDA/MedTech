@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PatientForm from '../components/PatientForm';
-import FollowUpQuestions from '../components/FollowUpQuestions';
+import DiagnosisTest from '../components/DiagnosisTest';
 import DiagnosisReport from '../components/DiagnosisReport';
+import { storeSessionId } from '../utils/sessionStorage';
 
 enum DiagnosisStep {
   PATIENT_INFO,
@@ -11,7 +12,6 @@ enum DiagnosisStep {
 }
 
 const DiagnosisPage: React.FC = () => {
-
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -21,30 +21,28 @@ const DiagnosisPage: React.FC = () => {
   const [sessionId, setSessionId] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [transition, setTransition] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
 
-  const handlePatientSubmit = (newSessionId: string) => {
-    setTransition(true);
+  const handlePatientSubmit = useCallback((newSessionId: string) => {
     setSessionId(newSessionId);
+    storeSessionId(newSessionId);
+    setCurrentStep(DiagnosisStep.FOLLOW_UP);
+  }, []);
 
-    // Add a small delay for the transition effect
-    setTimeout(() => {
-      setCurrentStep(DiagnosisStep.FOLLOW_UP);
-      setTransition(false);
-    }, 300);
-  };
-
-  const handleFollowUpComplete = () => {
+  const handleFollowUpComplete = useCallback(() => {
     setTransition(true);
+    setIsConnected(false);
 
     // Add a small delay for the transition effect
     setTimeout(() => {
       setCurrentStep(DiagnosisStep.REPORT);
       setTransition(false);
     }, 300);
-  };
+  }, []);
 
-  const handleStartNewDiagnosis = () => {
+  const handleStartNewDiagnosis = useCallback(() => {
     setTransition(true);
+    setIsConnected(false);
 
     // Add a small delay for the transition effect
     setTimeout(() => {
@@ -53,25 +51,30 @@ const DiagnosisPage: React.FC = () => {
       setCurrentStep(DiagnosisStep.PATIENT_INFO);
       setTransition(false);
     }, 300);
-  };
+  }, []);
 
-  const handleViewReasoning = () => {
+  const handleViewReasoning = useCallback(() => {
     if (sessionId) {
       navigate(`/reasoning/${sessionId}`);
     }
-  };
+  }, [sessionId, navigate]);
 
-  const handleError = (err: any) => {
+  const handleError = useCallback((err: any) => {
     console.error('Error in diagnosis process:', err);
-    setError('An error occurred. Please try again.');
-  };
+    setError(err.message || 'An error occurred. Please try again.');
+    setIsConnected(false);
+  }, []);
+
+  const handleConnectionStatus = useCallback((status: boolean) => {
+    setIsConnected(status);
+  }, []);
 
   const getStepName = (step: DiagnosisStep): string => {
     switch (step) {
       case DiagnosisStep.PATIENT_INFO:
         return 'Patient Information';
       case DiagnosisStep.FOLLOW_UP:
-        return 'Follow-up Questions';
+        return 'Diagnosis Chat';
       case DiagnosisStep.REPORT:
         return 'Diagnosis Report';
       default:
@@ -114,7 +117,8 @@ const DiagnosisPage: React.FC = () => {
 
           <div className="flex items-center">
             <div
-              className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center ${currentStep >= DiagnosisStep.PATIENT_INFO
+              className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center ${
+                currentStep >= DiagnosisStep.PATIENT_INFO
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-200 text-gray-700'
                 }`}
@@ -126,29 +130,33 @@ const DiagnosisPage: React.FC = () => {
             </div>
 
             <div
-              className={`h-1 flex-1 transition-all duration-500 ${currentStep > DiagnosisStep.PATIENT_INFO ? 'bg-blue-600' : 'bg-gray-200'
+              className={`h-1 flex-1 transition-all duration-500 ${
+                currentStep > DiagnosisStep.PATIENT_INFO ? 'bg-blue-600' : 'bg-gray-200'
                 }`}
             ></div>
 
             <div
-              className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center ${currentStep >= DiagnosisStep.FOLLOW_UP
+              className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center ${
+                currentStep >= DiagnosisStep.FOLLOW_UP
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-200 text-gray-700'
                 }`}
             >
-              <span className="material-icons text-sm">question_answer</span>
+              <span className="material-icons text-sm">chat</span>
               {currentStep === DiagnosisStep.FOLLOW_UP && (
                 <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full animate-pulse"></span>
               )}
             </div>
 
             <div
-              className={`h-1 flex-1 transition-all duration-500 ${currentStep > DiagnosisStep.FOLLOW_UP ? 'bg-blue-600' : 'bg-gray-200'
+              className={`h-1 flex-1 transition-all duration-500 ${
+                currentStep > DiagnosisStep.FOLLOW_UP ? 'bg-blue-600' : 'bg-gray-200'
                 }`}
             ></div>
 
             <div
-              className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center ${currentStep >= DiagnosisStep.REPORT
+              className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center ${
+                currentStep >= DiagnosisStep.REPORT
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-200 text-gray-700'
                 }`}
@@ -165,7 +173,7 @@ const DiagnosisPage: React.FC = () => {
               Patient Info
             </div>
             <div className={currentStep === DiagnosisStep.FOLLOW_UP ? 'text-blue-600 font-medium' : ''}>
-              Questions
+              Chat
             </div>
             <div className={currentStep === DiagnosisStep.REPORT ? 'text-blue-600 font-medium' : ''}>
               Results
@@ -175,7 +183,8 @@ const DiagnosisPage: React.FC = () => {
 
         {/* Current step content with transitions */}
         <div
-          className={`transition-opacity duration-300 ${transition ? 'opacity-0 transform -translate-y-4' : 'opacity-100'
+          className={`transition-opacity duration-300 ${
+            transition ? 'opacity-0 transform -translate-y-4' : 'opacity-100'
             }`}
         >
           {currentStep === DiagnosisStep.PATIENT_INFO && (
@@ -186,11 +195,7 @@ const DiagnosisPage: React.FC = () => {
           )}
 
           {currentStep === DiagnosisStep.FOLLOW_UP && sessionId && (
-            <FollowUpQuestions
-              sessionId={sessionId}
-              onComplete={handleFollowUpComplete}
-              onError={handleError}
-            />
+            <DiagnosisTest onComplete={handleFollowUpComplete} />
           )}
 
           {currentStep === DiagnosisStep.REPORT && sessionId && (
