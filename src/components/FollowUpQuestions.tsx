@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { api } from '../services/api';
 
 interface FollowUpQuestionsProps {
   sessionId: string;
@@ -112,18 +113,12 @@ const FollowUpQuestions: React.FC<FollowUpQuestionsProps> = ({
 
     try {
       setConnectionStatus('connecting');
-      // Convert http/https to ws/wss for WebSocket connection
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${wsProtocol}//${window.location.host}/ws/diagnosis/${sessionId}`;
-      
-      console.log('Connecting to WebSocket:', wsUrl);
-      
-      const ws = new WebSocket(wsUrl);
+      const ws = api.createFollowUpWebSocket(sessionId);
       wsRef.current = ws;
 
       ws.onopen = () => {
         if (!mountedRef.current) return;
-        console.log('WebSocket connected');
+        console.log('WebSocket connected successfully');
         setIsConnected(true);
         onConnectionStatus(true);
         setConnectionStatus('connected');
@@ -138,8 +133,30 @@ const FollowUpQuestions: React.FC<FollowUpQuestionsProps> = ({
         if (!mountedRef.current) return;
         try {
           const data = JSON.parse(event.data);
-          console.log('Received message:', data);
-          handleQuestion(data);
+          console.log('Received WebSocket message:', data);
+          
+          if (data.question) {
+            addMessage({ 
+              type: 'bot', 
+              content: data.question,
+              options: data.options 
+            });
+            setIsLoading(false);
+            setError(null);
+            if (loadingTimeoutRef.current) {
+              clearTimeout(loadingTimeoutRef.current);
+            }
+          } else if (data.message) {
+            addMessage({ type: 'bot', content: data.message });
+            if (data.status === 'ready_for_diagnosis') {
+              setIsComplete(true);
+              setIsLoading(false);
+              onComplete();
+            }
+          } else if (data.error) {
+            addMessage({ type: 'bot', content: `Error: ${data.error}` });
+            handleError(new Error(data.error));
+          }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
           handleError(error);
@@ -228,10 +245,7 @@ const FollowUpQuestions: React.FC<FollowUpQuestionsProps> = ({
 
     setIsSubmitting(true);
     try {
-      wsRef.current.send(JSON.stringify({
-        type: 'answer',
-        answer: answer.trim()
-      }));
+      wsRef.current.send(answer.trim());
       addMessage({ type: 'user', content: answer.trim() });
       setAnswer('');
       setIsLoading(true);

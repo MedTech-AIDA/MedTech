@@ -8,10 +8,18 @@ interface Message {
 }
 
 interface DiagnosisTestProps {
-  onComplete?: () => void;
+  onComplete: () => void;
+  onError?: (error: any) => void;
+  onConnectionStatus?: (status: boolean) => void;
 }
 
-const DiagnosisTest: React.FC<DiagnosisTestProps> = ({ onComplete }) => {
+const WS_BASE_URL = 'wss://medical-diagnosis-smwn.onrender.com';
+
+const DiagnosisTest: React.FC<DiagnosisTestProps> = ({ 
+  onComplete, 
+  onError,
+  onConnectionStatus 
+}) => {
   const [sessionId, setSessionId] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -42,11 +50,14 @@ const DiagnosisTest: React.FC<DiagnosisTestProps> = ({ onComplete }) => {
     addMessage({ type: 'bot', content: 'Connecting...' });
 
     try {
-      const ws = new WebSocket(`ws://127.0.0.1:8000/followup/${sessionId}`);
+      const wsUrl = `${WS_BASE_URL}/followup/${sessionId}`;
+      console.log('Connecting to WebSocket:', wsUrl);
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
         setIsConnected(true);
+        onConnectionStatus?.(true);
         addMessage({ type: 'bot', content: '🟢 Connected' });
       };
 
@@ -61,34 +72,50 @@ const DiagnosisTest: React.FC<DiagnosisTestProps> = ({ onComplete }) => {
             });
           } else if (data.message) {
             addMessage({ type: 'bot', content: data.message });
-            if (data.message.includes('diagnosis complete') || data.message.includes('Thank you for your answers')) {
-              onComplete?.();
+            if (data.message.includes('diagnosis complete') || 
+                data.message.includes('Thank you for your answers') ||
+                data.status === 'ready_for_diagnosis') {
+              // Close the WebSocket connection gracefully
+              if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                wsRef.current.close();
+              }
+              // Call onComplete to trigger navigation
+              onComplete();
             }
           } else if (data.error) {
             addMessage({ type: 'bot', content: `Error: ${data.error}` });
+            onError?.(new Error(data.error));
           }
         } catch (error) {
           console.error('Error parsing message:', error);
           addMessage({ type: 'bot', content: 'Error parsing message from server' });
+          onError?.(error);
         }
       };
 
       ws.onclose = () => {
         setIsConnected(false);
+        onConnectionStatus?.(false);
         addMessage({ type: 'bot', content: '🔴 Connection closed' });
+        // If we're already complete, don't show an error
+        if (!messages.some(m => m.content.includes('diagnosis complete'))) {
+          setError('Connection closed unexpectedly');
+        }
       };
 
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
         addMessage({ type: 'bot', content: '❌ Connection error' });
         setError('Connection error occurred');
+        onError?.(error);
       };
     } catch (error) {
       console.error('Error creating WebSocket:', error);
       setError('Failed to create WebSocket connection');
       addMessage({ type: 'bot', content: '❌ Failed to connect' });
+      onError?.(error);
     }
-  }, [sessionId, addMessage, onComplete]);
+  }, [sessionId, addMessage, onComplete, onError, onConnectionStatus]);
 
   // Load session ID and start chat automatically
   useEffect(() => {
@@ -114,8 +141,9 @@ const DiagnosisTest: React.FC<DiagnosisTestProps> = ({ onComplete }) => {
     } catch (error) {
       console.error('Error sending answer:', error);
       addMessage({ type: 'bot', content: '⚠️ Failed to send answer' });
+      onError?.(error);
     }
-  }, [userAnswer, addMessage]);
+  }, [userAnswer, addMessage, onError]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

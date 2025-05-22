@@ -1,7 +1,8 @@
 import axios, { AxiosError } from 'axios';
 
 // Configure the backend URL
-const API_BASE_URL = import.meta.env.VITE_REACT_APP_API_URL || 'http://127.0.0.1:8000';
+const API_BASE_URL = 'https://medical-diagnosis-smwn.onrender.com';
+const WS_BASE_URL = 'wss://medical-diagnosis-smwn.onrender.com';
 const MAX_RETRIES = 3;
 
 // Log the API endpoint being used
@@ -14,7 +15,7 @@ export interface PatientData {
   name: string;
   age: number;
   gender: string;
-  symptoms: string;
+  symptoms: string[];
 }
 
 export interface SessionData {
@@ -32,7 +33,7 @@ export interface FollowUpOption {
 
 export interface FollowUpQuestion {
   question: string;
-  options: FollowUpOption[];
+  options: Array<{ key: string; value: string }>;
   status: 'waiting_for_answer' | 'ready_for_diagnosis';
 }
 
@@ -379,4 +380,33 @@ export const generateReport = async (sessionId: string): Promise<Blob> => {
 // Ask a medical question
 export const askMedicalQuestion = async (question: string): Promise<{ answer: string; explanation?: string }> => {
   return apiRequest('/ask', 'POST', { question });
+};
+
+export const api = {
+  // Submit initial symptoms
+  submitSymptoms: async (data: PatientData): Promise<{ session_id: string }> => {
+    const response = await axios.post(`${API_BASE_URL}/symptom`, data);
+    return response.data;
+  },
+
+  // Get session data
+  getSessionData: async (sessionId: string): Promise<SessionData> => {
+    const response = await axios.get(`${API_BASE_URL}/session/${sessionId}`);
+    return response.data;
+  },
+
+  // Generate report
+  generateReport: async (sessionId: string): Promise<Blob> => {
+    const response = await axios.get(`${API_BASE_URL}/generate_report/${sessionId}`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+
+  // Create WebSocket connection for follow-up questions
+  createFollowUpWebSocket: (sessionId: string): WebSocket => {
+    const wsUrl = `${WS_BASE_URL}/followup/${sessionId}`;
+    console.log('Connecting to WebSocket:', wsUrl);
+    return new WebSocket(wsUrl);
+  }
 }; 
