@@ -5,4 +5,15 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    strictPort: false,
+    allowedHosts: [
+      'localhost',
+      'sehat-mj6b.onrender.com',
+      '.onrender.com'
+    ],
+    cors: true
+  }
 })

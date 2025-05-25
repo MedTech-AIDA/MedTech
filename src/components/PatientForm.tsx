@@ -49,28 +49,14 @@ const PatientForm: React.FC<PatientFormProps> = ({ onSubmitSuccess, onError }) =
 
     // Check for validation errors
     if (!formData.name || !formData.age || !formData.gender || !formData.symptoms) {
-      console.log('Form validation failed:', {
-        name: formData.name,
-        age: formData.age,
-        gender: formData.gender,
-        symptoms: formData.symptoms
-      });
       return;
     }
     
     try {
       setIsLoading(true);
-      console.log('Submitting form data:', formData);
-      
       const response = await submitPatientData(formData);
-      console.log('Form submission successful:', response);
-      
       onSubmitSuccess(response.session_id);
     } catch (error) {
-      console.error('Form submission error:', {
-        error,
-        formData
-      });
       onError(error);
     } finally {
       setIsLoading(false);

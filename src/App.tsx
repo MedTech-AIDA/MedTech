@@ -1,6 +1,7 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import QuestionAnswer from './pages/QuestionAnswer.tsx';
-import ModelReasoning from './pages/ModelReasoning.tsx';
+import QuestionAnswer from './pages/QuestionAnswer';
+import ModelReasoning from './pages/ModelReasoning';
 import DiagnosisPage from './pages/DiagnosisPage';
 import './App.css';
 import Navbar from './pages/Navbar.tsx';
@@ -12,7 +13,7 @@ function App() {
   return (
     <Router>
       <Navbar/>
-
+        
       <Routes>
         <Route path="/" element={<QuestionAnswer />} />
         <Route path="/reasoning/:sessionId?" element={<ModelReasoning />} />
@@ -20,9 +21,6 @@ function App() {
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
       </Routes>
-
-      <Footer/>
-
     </Router>
   );
 }
