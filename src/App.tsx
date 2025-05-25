@@ -5,23 +5,20 @@ import DiagnosisPage from './pages/DiagnosisPage';
 import './App.css';
 import Navbar from './pages/Navbar.tsx';
 import Footer from './pages/Footer.tsx';
-
-// function Navigation() {
-//   return (
-    
-//   );
-// }
+import Contact from './pages/Contact.tsx';
+import About from './pages/About.tsx';
 
 function App() {
   return (
     <Router>
-      {/* <Navigation /> */}
       <Navbar/>
 
       <Routes>
         <Route path="/" element={<QuestionAnswer />} />
         <Route path="/reasoning/:sessionId?" element={<ModelReasoning />} />
         <Route path="/diagnosis" element={<DiagnosisPage />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/contact" element={<Contact />} />
       </Routes>
 
       <Footer/>

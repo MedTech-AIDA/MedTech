@@ -167,7 +167,7 @@ const ModelReasoning: React.FC = () => {
 
   return (
     <div className="pb-6 sm:pb-8 lg:pb-12 relative overflow-hidden">
-      <div className="mx-auto px-4 md:px-8 text-gray-700 pt-24">
+      <div className="mx-auto px-4 md:px-8 text-gray-700 pt-16 lg:pt-24">
         <h2 className="text-2xl font-semibold mb-6">Diagnostic Reasoning</h2>
 
         <div className="bg-white rounded-lg shadow p-6 mb-6">
