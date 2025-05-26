@@ -111,7 +111,7 @@ export default function QuestionAnswer() {
 
   return (
     <div className="pb-6 sm:pb-8 lg:pb-12 relative overflow-hidden">
-      <div className="mx-auto px-4 md:px-8 text-gray-700 pt-24">
+      <div className="mx-auto px-4 md:px-8 text-gray-700 pt-16 lg:pt-24">
         {/* Left: Q&A Section */}
         <div className="flex-1 flex flex-col min-h-[80vh]">
           <div className="bg-white rounded-t-xl shadow-md p-4 border-b">

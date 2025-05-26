@@ -84,7 +84,7 @@ const DiagnosisPage: React.FC = () => {
 
   return (
     <div className="pb-6 sm:pb-8 lg:pb-12 relative overflow-hidden">
-      <div className="mx-auto px-4 md:px-8 text-gray-700 pt-24">
+      <div className="mx-auto px-4 md:px-8 text-gray-700  pt-16 lg:pt-24">
         <header className="text-center mb-10">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Advanced Diagnosis System</h1>
           <p className="text-gray-600 max-w-2xl mx-auto">
