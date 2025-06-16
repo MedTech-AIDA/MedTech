@@ -76,7 +76,7 @@ wss.on('connection', (ws, req) => {
 
 // Routes
 app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to Sehat API' });
+  res.json({ message: 'Welcome to MedTech API' });
 });
 
 // Error handling middleware

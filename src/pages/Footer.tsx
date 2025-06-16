@@ -1,11 +1,10 @@
-
 const Footer = () => {
     return (
         <footer className="bg-gray-800 text-white py-6">
             <div className="max-w-7xl mx-auto px-4">
                 <div className="flex flex-col md:flex-row justify-between items-center">
                     <div className="mb-4 md:mb-0">
-                        <div className="text-2xl font-bold">Sehat</div>
+                        <div className="text-2xl font-bold">MedTech</div>
                         <p className="text-gray-400">Advanced Medical Diagnosis System</p>
                     </div>
                     <div className="flex gap-8">
@@ -26,7 +25,7 @@ const Footer = () => {
                     </div>
                 </div>
                 <div className="mt-8 pt-6 border-t border-gray-700 text-center text-gray-400">
-                    © {new Date().getFullYear()} Sehat. All rights reserved.
+                    © {new Date().getFullYear()} MedTech. All rights reserved.
                 </div>
             </div>
         </footer>

@@ -30,7 +30,7 @@ const Navbar = () => {
             <div className="bg-gray-800 p-1 px-2 z-50">
                 <Link to="/" onClick={() => { setOpen(false) }} className="text-2xl font-bold text-blue-500 flex items-center max-lg:w-28">
                     <span className="material-icons mr-2">medical_services</span>
-                    Sehat
+                    MedTech
                 </Link>
             </div>
 

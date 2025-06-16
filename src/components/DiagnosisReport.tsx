@@ -156,7 +156,7 @@ const DiagnosisReport: React.FC<DiagnosisReportProps> = ({ sessionId, onNewDiagn
               onClick={() => {
                 // Open email client with pre-filled subject
                 const subject = 'Medical Diagnosis Report';
-                const body = 'Please find attached my medical diagnosis report from Sehat.';
+                const body = 'Please find attached my medical diagnosis report from MedTech.';
                 window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
               }}
               className="flex-1 py-3 px-4 rounded-lg font-medium text-green-600 bg-white border border-green-600 hover:bg-green-50 transition-all flex items-center justify-center"

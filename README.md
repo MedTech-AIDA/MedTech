@@ -1,6 +1,6 @@
-# Sehat - AI-Powered Medical Diagnosis System
+# MedTech - AI-Powered Medical Diagnosis System
 
-Sehat is a modern web application that provides AI-powered medical diagnosis through an interactive chat interface. The system analyzes patient symptoms, asks relevant follow-up questions, and generates comprehensive medical reports.
+MedTech is a modern web application that provides AI-powered medical diagnosis through an interactive chat interface. The system analyzes patient symptoms, asks relevant follow-up questions, and generates comprehensive medical reports.
 
 ## Features
 
@@ -30,8 +30,8 @@ Sehat is a modern web application that provides AI-powered medical diagnosis thr
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/sehat.git
-cd sehat
+git clone https://github.com/yourusername/medtech.git
+cd medtech
 ```
 
 2. Install dependencies:
@@ -69,7 +69,7 @@ npm run preview
 ## Project Structure
 
 ```
-sehat/
+medtech/
 ├── src/
 │   ├── components/         # React components
 │   ├── pages/             # Page components
@@ -129,7 +129,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-For support, email support@sehat.com or open an issue in the GitHub repository.
+For support, email support@medtech.com or open an issue in the GitHub repository.
 
 ## Acknowledgments
 

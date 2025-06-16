@@ -10,10 +10,10 @@ const About = () => {
         <div className="pb-6 sm:pb-8 lg:pb-12 relative overflow-hidden">
             <div className="mx-auto px-4 md:px-8 text-gray-700  pt-16 lg:pt-24">
                 <h1 className="text-4xl font-bold text-center text-indigo-700">
-                    About <span className="text-blue-500">Sehat</span>
+                    About <span className="text-blue-500">MedTech</span>
                 </h1>
                 <p className="lg:w-4/5 text-justify lg:text-center mx-auto mb-8">
-                    At <strong>Sehat</strong>, we believe in empowering individuals to take
+                    At <strong>MedTech</strong>, we believe in empowering individuals to take
                     charge of their health. In a world rapidly advancing in technology,
                     we bring innovation and care together - making healthcare more
                     accessible, proactive, and personalized.
@@ -38,7 +38,7 @@ const About = () => {
                 </section>
 
                 <section className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-                    <h2 className="text-2xl font-semibold text-indigo-600 mb-2">Why Sehat?</h2>
+                    <h2 className="text-2xl font-semibold text-indigo-600 mb-2">Why MedTech?</h2>
                     <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3 list-disc pl-5">
                         <li>AI-Powered Health Insights</li>
                         <li>Private & Secure Data Handling</li>
@@ -58,15 +58,15 @@ const About = () => {
 
                 <section className="bg-indigo-100 rounded-2xl shadow-md p-6 text-center">
                     <h2 className="text-2xl font-bold text-indigo-700 mb-4">
-                        Let’s Build a Healthier Tomorrow
+                        Let's Build a Healthier Tomorrow
                     </h2>
                     <p className="text-lg">
                         Whether you're managing chronic conditions, curious about your
-                        vitals, or seeking professional advice—<strong>Sehat</strong> is your
+                        vitals, or seeking professional advice—<strong>MedTech</strong> is your
                         trusted digital ally.
                     </p>
                     <p className="mt-4 italic text-indigo-500">
-                        "Your data, your health, your future — all safeguarded by Sehat."
+                        "Your data, your health, your future — all safeguarded by MedTech."
                     </p>
                 </section>
             </div>
@@ -154,9 +154,9 @@ export default About;
 //                 <div
 //                     className="bg-gradient-to-r from-indigo-600 to-blue-500 text-white rounded-3xl p-10 text-center shadow-2xl"
 //                 >
-//                     <h2 className="text-3xl font-bold mb-4">Let’s Build a Healthier Tomorrow</h2>
+//                     <h2 className="text-3xl font-bold mb-4">Let's Build a Healthier Tomorrow</h2>
 //                     <p className="text-lg">
-//                         Whether you’re managing chronic issues or simply staying informed,
+//                         Whether you're managing chronic issues or simply staying informed,
 //                         <strong> Sehat</strong> is your futuristic companion in wellness.
 //                     </p>
 //                     <p className="mt-6 italic text-blue-100">

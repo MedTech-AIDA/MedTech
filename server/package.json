@@ -1,7 +1,7 @@
 {
-  "name": "sehat-server",
+  "name": "medtech-server",
   "version": "1.0.0",
-  "description": "Backend server for Sehat healthcare application",
+  "description": "Backend server for MedTech healthcare application",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
