@@ -408,5 +408,17 @@ export const api = {
     const wsUrl = `${WS_BASE_URL}/followup/${sessionId}`;
     console.log('Connecting to WebSocket:', wsUrl);
     return new WebSocket(wsUrl);
+  },
+
+  // Save diagnosis report
+  saveDiagnosisReport: async (reportData: any): Promise<any> => {
+    const response = await axios.post(`${API_BASE_URL}/save_report`, reportData);
+    return response.data;
+  },
+
+  // Get diagnosis report
+  getDiagnosisReport: async (sessionId: string): Promise<any> => {
+    const response = await axios.get(`${API_BASE_URL}/get_report/${sessionId}`);
+    return response.data;
   }
 }; 
