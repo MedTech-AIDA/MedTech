@@ -9,6 +9,29 @@ interface Conversation {
   timestamp: Date;
 }
 
+const features = [
+  {
+    icon: 'smart_toy',
+    title: 'AI Medical Q&A',
+    desc: 'Get instant, reliable answers to your health questions from our AI-powered assistant.'
+  },
+  {
+    icon: 'insights',
+    title: 'Diagnosis Insights',
+    desc: 'Receive detailed insights and explanations for your symptoms and conditions.'
+  },
+  {
+    icon: 'description',
+    title: 'Report Analysis',
+    desc: 'Upload and analyze your medical reports securely and privately.'
+  },
+  {
+    icon: 'lock',
+    title: 'Secure & Private',
+    desc: 'Your data is encrypted and never shared. Privacy is our top priority.'
+  }
+];
+
 const Home: React.FC = () => {
 
   useEffect(()=>{
@@ -111,8 +134,63 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 pt-20">
-      {/* Chatbot is now a floating widget */}
+    <div className="min-h-screen bg-gray-50 pt-20 flex flex-col">
+      {/* Hero Section */}
+      <section className="flex flex-col items-center justify-center text-center py-16 px-4 bg-gradient-to-br from-blue-50 to-blue-100 relative">
+        <img src="/MedTech_logo.png" alt="MedTech Logo" className="h-24 w-auto mb-4 bg-white rounded-full shadow-lg p-2" />
+        <h1 className="text-4xl md:text-5xl font-extrabold text-blue-700 mb-3">MedTech</h1>
+        <p className="text-lg md:text-xl text-gray-700 mb-6 max-w-2xl">Empowering you with instant, AI-driven medical answers, diagnosis insights, and secure health tools.</p>
+        <a href="#features" className="inline-block bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold shadow hover:bg-blue-700 transition">Explore Features</a>
+        <div className="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-blue-100 to-transparent pointer-events-none" />
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className="py-16 px-4 max-w-5xl mx-auto">
+        <h2 className="text-3xl font-bold text-center text-blue-800 mb-10">Features</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
+          {features.map((f, i) => (
+            <div key={i} className="bg-white rounded-xl shadow p-6 flex flex-col items-center text-center hover:shadow-lg transition">
+              <span className="material-icons text-blue-600 text-4xl mb-2">{f.icon}</span>
+              <h3 className="font-bold text-lg text-blue-700 mb-1">{f.title}</h3>
+              <p className="text-gray-600 text-sm">{f.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section className="py-16 px-4 bg-blue-50">
+        <h2 className="text-3xl font-bold text-center text-blue-800 mb-10">How It Works</h2>
+        <div className="flex flex-col md:flex-row items-center justify-center gap-8 max-w-4xl mx-auto">
+          <div className="flex flex-col items-center">
+            <span className="material-icons text-blue-500 text-4xl mb-2">question_answer</span>
+            <h4 className="font-semibold text-blue-700 mb-1">1. Ask</h4>
+            <p className="text-gray-600 text-center">Type your medical question or upload a report.</p>
+          </div>
+          <div className="flex flex-col items-center">
+            <span className="material-icons text-blue-500 text-4xl mb-2">psychology</span>
+            <h4 className="font-semibold text-blue-700 mb-1">2. Get Answers</h4>
+            <p className="text-gray-600 text-center">Receive instant, AI-powered responses and insights.</p>
+          </div>
+          <div className="flex flex-col items-center">
+            <span className="material-icons text-blue-500 text-4xl mb-2">favorite</span>
+            <h4 className="font-semibold text-blue-700 mb-1">3. Take Action</h4>
+            <p className="text-gray-600 text-center">Use the information to make informed health decisions.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* About Section */}
+      <section className="py-16 px-4 max-w-3xl mx-auto">
+        <h2 className="text-3xl font-bold text-center text-blue-800 mb-6">Why MedTech?</h2>
+        <p className="text-gray-700 text-lg text-center mb-4">MedTech is dedicated to making healthcare information accessible, accurate, and secure for everyone. Our AI-driven platform helps you get answers, understand your health, and take control—all while keeping your data private.</p>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-10 px-4 flex flex-col items-center bg-blue-600">
+        <h3 className="text-2xl font-bold text-white mb-3">Ready to get started?</h3>
+        <a href="/" className="bg-white text-blue-700 px-8 py-3 rounded-lg font-semibold shadow hover:bg-blue-50 transition">Ask a Medical Question</a>
+      </section>
     </div>
   );
 };

@@ -299,24 +299,36 @@ const FollowUpQuestions: React.FC<FollowUpQuestionsProps> = ({
 
       <div 
         ref={chatBoxRef}
-        className="border border-gray-300 rounded-md p-4 mb-4 h-[400px] overflow-y-auto bg-white"
+        className="border border-gray-300 rounded-md p-4 mb-4 h-[400px] overflow-y-auto bg-white flex flex-col gap-2"
       >
         {messages.map((message, index) => (
           <div 
             key={index} 
-            className={`mb-2 ${
-              message.type === 'bot' ? 'text-green-600' : 'text-blue-600'
-            }`}
+            className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} items-end`}
           >
-            <strong>{message.type === 'bot' ? 'Bot:' : 'You:'}</strong>{' '}
-            {message.content}
-            {message.options && (
-              <div className="ml-4 mt-1">
-                {message.options.map((option, optIndex) => (
-                  <div key={optIndex} className="text-gray-600">
-                    {option.key}: {option.value}
-                  </div>
-                ))}
+            {message.type === 'bot' && (
+              <div className="flex items-end gap-2">
+                <span className="material-icons bg-blue-100 text-blue-600 rounded-full p-1">smart_toy</span>
+                <div className="bg-blue-50 border border-blue-200 text-blue-900 rounded-lg px-4 py-2 max-w-xs shadow text-sm">
+                  {message.content}
+                  {message.options && (
+                    <div className="mt-2 space-y-1">
+                      {message.options.map((option, optIndex) => (
+                        <div key={optIndex} className="text-gray-600">
+                          {option.key}: {option.value}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {message.type === 'user' && (
+              <div className="flex items-end gap-2">
+                <div className="bg-blue-500 text-white rounded-lg px-4 py-2 max-w-xs shadow text-sm">
+                  {message.content}
+                </div>
+                <span className="material-icons bg-blue-500 text-white rounded-full p-1">person</span>
               </div>
             )}
           </div>
@@ -324,7 +336,7 @@ const FollowUpQuestions: React.FC<FollowUpQuestionsProps> = ({
       </div>
 
       {isConnected && (
-        <form onSubmit={handleSubmit} className="flex gap-2">
+        <form onSubmit={handleSubmit} className="flex gap-2 mt-2">
           <input
             type="text"
             value={answer}
@@ -342,7 +354,7 @@ const FollowUpQuestions: React.FC<FollowUpQuestionsProps> = ({
                 : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
-            {isSubmitting ? 'Submitting...' : 'Send'}
+            {isSubmitting ? 'Submitting...' : <span className="material-icons">send</span>}
           </button>
         </form>
       )}

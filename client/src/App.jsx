@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import QuestionAnswer from './pages/QuestionAnswer';
+import Home from './pages/Home';
 import ModelReasoning from './pages/ModelReasoning';
 
 function App() {
@@ -12,7 +12,7 @@ function App() {
         <Link to="/reasoning" className="text-gray-700 hover:text-blue-600">Model Reasoning</Link>
       </nav>
       <Routes>
-        <Route path="/" element={<QuestionAnswer />} />
+        <Route path="/" element={<Home />} />
         <Route path="/reasoning" element={<ModelReasoning />} />
       </Routes>
     </Router>
