@@ -1,3 +1,4 @@
+// NOTE: To prevent the fixed navbar from covering your content, add a top padding to your main content (e.g., <div className="pt-20">...</div>) matching the navbar height.
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -39,7 +40,7 @@ const Navbar = () => {
                 }
             </div>
 
-            <div className={`absolute lg:static top-0 left-0 bg-gray-800 p-1 lg:flex lg:space-x-6 lg:pl-10 lg:ml-1 grid grid-cols-3 gap-4 text-center w-full max-lg:py-3 lg:z-auto -z-50 transition-all duration-500 ease-in-out ${open ? 'top-10' : 'top-[-1000px]'} lg:border-l-2 max-lg:border-t-2 max-lg:rounded-b-md`}>
+            <div className={`absolute lg:static top-0 left-0 bg-gray-800 p-1 lg:flex lg:space-x-6 lg:pl-10 lg:ml-1 grid grid-cols-3 gap-4 text-center w-full max-lg:py-3 lg:z-auto -z-50 transition-all duration-200 ease-in-out ${open ? 'top-20' : 'top-[-1000px]'} lg:border-l-2 max-lg:border-t-2 max-lg:rounded-b-md`}>
                 <NavLink to="/" setOpen={setOpen}>Home</NavLink>
                 <NavLink to="/diagnosis" setOpen={setOpen}>Diagnosis</NavLink>
                 <NavLink to="/reasoning" setOpen={setOpen}>Insights</NavLink>

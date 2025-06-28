@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { generateReport } from '../services/api';
+import { generateDiagnosisPdf } from '../utils/jsonToPdf';
+import DiagnosisReportPreview from './DiagnosisReportPreview';
 
 interface DiagnosisReportProps {
   sessionId: string;
@@ -11,42 +13,43 @@ const DiagnosisReport: React.FC<DiagnosisReportProps> = ({ sessionId, onNewDiagn
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   const handleDownloadReport = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      setIsLoading(true);
-      setError(null);
-      setDownloadProgress(0);
-      
-      console.log('Attempting to generate report for session:', sessionId);
-      const reportBlob = await generateReport(sessionId, (progress) => {
-        setDownloadProgress(progress);
-      });
-      
-      // Create a URL for the blob
-      const url = URL.createObjectURL(reportBlob);
-      
-      // Create a temporary link and trigger download
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `diagnosis-report-${sessionId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      
-      // Clean up
-      URL.revokeObjectURL(url);
-      document.body.removeChild(link);
-      
-      // Mark as downloaded
+      const res = await fetch(`https://medical-diagnosis-smwn.onrender.com/generate_report/${sessionId}`);
+      console.log('Response status:', res.status);
+      const text = await res.text();
+      console.log('Raw response body:', text);
+      if (!res.ok) throw new Error('Failed to fetch report data');
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error('Response is not valid JSON');
+      }
+      console.log('Diagnosis report JSON:', data);
+      if (!data || !data.report) {
+        throw new Error('Diagnosis report data is missing.');
+      }
+      const report = data.report;
+      if (!report.PatientInfo || !report.PatientInfo.Age || !report.PatientInfo.Gender) {
+        throw new Error('Report is missing patient information.');
+      }
+      if (!report.MainSymptoms || !Array.isArray(report.MainSymptoms)) {
+        throw new Error('Report is missing main symptoms.');
+      }
+      if (!report.TopDiseaseMatches || !Array.isArray(report.TopDiseaseMatches)) {
+        throw new Error('Report is missing disease matches.');
+      }
+      const doc = generateDiagnosisPdf(data);
+      doc.save(`diagnosis-report-${sessionId}.pdf`);
       setIsDownloaded(true);
-      
-      // Reset progress after a short delay
-      setTimeout(() => {
-        setDownloadProgress(0);
-      }, 1500);
-    } catch (err) {
-      console.error('Error downloading report:', err);
-      setError(err instanceof Error ? err.message : 'Failed to download report');
+      setShowPreview(true);
+    } catch (err: any) {
+      setError(err.message || 'Failed to download report');
     } finally {
       setIsLoading(false);
     }
@@ -92,6 +95,9 @@ const DiagnosisReport: React.FC<DiagnosisReportProps> = ({ sessionId, onNewDiagn
         
         <div className="space-y-4">
           <div className="border border-gray-200 rounded-lg p-6">
+            <div className="mb-6">
+              <DiagnosisReportPreview sessionId={sessionId} />
+            </div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center">
                 <span className="material-icons text-gray-500 mr-3">description</span>

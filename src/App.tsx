@@ -15,13 +15,16 @@ function App() {
     <Router>
       <Navbar/>
       <Chatbot />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/reasoning/:sessionId?" element={<ModelReasoning />} />
-        <Route path="/diagnosis" element={<DiagnosisPage />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/contact" element={<Contact />} />
-      </Routes>
+      <div className="pt-5">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/reasoning/:sessionId?" element={<ModelReasoning />} />
+          <Route path="/diagnosis" element={<DiagnosisPage />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+        </Routes>
+        <Footer />
+      </div>
     </Router>
   );
 }
