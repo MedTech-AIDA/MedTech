@@ -30,7 +30,7 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({ sessionId, onError })
       });
 
       // Create a download link
-      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const url = window.URL.createObjectURL(response.data);
       const link = document.createElement('a');
       link.href = url;
       link.download = `diagnosis-report-${sessionId}.pdf`;
