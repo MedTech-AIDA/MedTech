@@ -1,6 +1,10 @@
 // NOTE: To prevent the fixed navbar from covering your content, add a top padding to your main content (e.g., <div className="pt-20">...</div>) matching the navbar height.
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+
+function isAuthenticated() {
+    return !!localStorage.getItem('token');
+}
 
 function NavLink({ to, setOpen, children }: { to: string; setOpen: React.Dispatch<React.SetStateAction<boolean>>; children: React.ReactNode }) {
     const location = useLocation();
@@ -22,8 +26,22 @@ function NavLink({ to, setOpen, children }: { to: string; setOpen: React.Dispatc
 }
 
 const Navbar = () => {
-
     const [open, setOpen] = useState(false);
+    const [auth, setAuth] = useState(isAuthenticated());
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const handleStorage = () => setAuth(isAuthenticated());
+        window.addEventListener('storage', handleStorage);
+        return () => window.removeEventListener('storage', handleStorage);
+    }, []);
+
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setAuth(false);
+        navigate('/login');
+    };
 
     return (
         <nav className="text-white lg:flex items-center lg:py-3 lg:px-3 fixed top-0 left-0 bg-gray-800 w-full z-50 ">
@@ -46,6 +64,9 @@ const Navbar = () => {
                 <NavLink to="/reasoning" setOpen={setOpen}>Insights</NavLink>
                 <NavLink to="/about" setOpen={setOpen}>About Us</NavLink>
                 <NavLink to="/contact" setOpen={setOpen}>Contact Us</NavLink>
+                {!auth && <li><a href="/login" className="hover:text-blue-600">Login</a></li>}
+                {!auth && <li><a href="/register" className="hover:text-blue-600">Register</a></li>}
+                {auth && <li><button onClick={handleLogout} className="hover:text-blue-600 bg-transparent border-none cursor-pointer">Logout</button></li>}
             </div>
 
         </nav>
